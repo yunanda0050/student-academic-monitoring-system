@@ -85,5 +85,7 @@ git clone https://github.com/yunanda0050/student-academic-monitoring-system.git
 
 ## Author
 **Yunanda Windi Astuti**
+
 Bachelor of Information Systems
+
 Interested in Backend Development, Database Management, and Application Development.
