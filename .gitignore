@@ -1,0 +1,18 @@
+# Database
+database/absensibaru2 (1).sql
+database/absensibaru2 (2).sql
+
+# File konfigurasi database
+config/koneksi.php
+
+# Composer dependencies
+vendor/
+
+# VS Code settings
+.vscode/
+
+# File log
+*.log
+
+# File sementara
+*.tmp

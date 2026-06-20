@@ -1,0 +1,173 @@
+<?php
+session_start();
+require_once 'config/koneksi.php';
+require_once 'partials/header.php';
+require_once 'partials/navbar.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$tab = isset($_GET['tab']) ? $_GET['tab'] : 'absensi';
+
+$kelas_stmt = $pdo->query("SELECT id, nama_kelas, sub_kelas FROM kelas ORDER BY nama_kelas");
+$kelas_list = $kelas_stmt->fetchAll();
+
+$tanggal_awal = $_GET['tanggal_awal'] ?? date('Y-m-d');
+$tanggal_akhir = $_GET['tanggal_akhir'] ?? date('Y-m-d');
+$kelas_id = $_GET['kelas_id'] ?? '';
+
+$where_conditions = [];
+$params = [];
+
+if (!empty($kelas_id)) {
+    $where_conditions[] = "s.kelas_id = ?";
+    $params[] = $kelas_id;
+}
+
+$where_conditions[] = "DATE(a.tanggal) BETWEEN ? AND ?";
+$params[] = $tanggal_awal;
+$params[] = $tanggal_akhir;
+
+$where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
+
+if ($tab === 'absensi') {
+    $query = "
+        SELECT 
+            k.nama_kelas,
+            k.sub_kelas,
+            s.nis,
+            s.nama as nama_siswa,
+            s.jenis_kelamin,
+            DATE(a.tanggal) as tanggal,
+            a.status,
+            a.keterangan,
+            g.nama as guru_pengajar
+        FROM siswa s
+        JOIN kelas k ON s.kelas_id = k.id
+        LEFT JOIN absensi a ON s.id = a.siswa_id
+        LEFT JOIN guru g ON a.created_by = g.id
+        $where_clause
+        ORDER BY k.nama_kelas, s.nama, a.tanggal
+    ";
+} else {
+    $query = "
+        SELECT 
+            k.nama_kelas,
+            k.sub_kelas,
+            s.nis,
+            s.nama as nama_siswa,
+            s.jenis_kelamin,
+            n.absen, n.tugas, n.uts, n.uas, n.total, n.grade
+        FROM siswa s
+        JOIN kelas k ON s.kelas_id = k.id
+        LEFT JOIN nilai n ON s.id = n.id_nilai
+        $where_clause
+        ORDER BY k.nama_kelas, s.nama
+    ";
+}
+
+$stmt = $pdo->prepare($query);
+$stmt->execute($params);
+$data = $stmt->fetchAll();
+?>
+
+<div class="md:pl-64 pb-safe">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-sm mb-6">
+            <div class="p-6">
+                <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan <?= ucfirst($tab) ?></h1>
+
+                <div class="flex space-x-4 mb-4">
+                    <a href="?tab=absensi&kelas_id=<?= $kelas_id ?>&tanggal_awal=<?= $tanggal_awal ?>&tanggal_akhir=<?= $tanggal_akhir ?>" class="<?= $tab === 'absensi' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700' ?> px-4 py-2 rounded">Laporan Absensi</a>
+                    <a href="?tab=nilai&kelas_id=<?= $kelas_id ?>&tanggal_awal=<?= $tanggal_awal ?>&tanggal_akhir=<?= $tanggal_akhir ?>" class="<?= $tab === 'nilai' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700' ?> px-4 py-2 rounded">Laporan Nilai</a>
+                </div>
+
+                <form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <input type="hidden" name="tab" value="<?= $tab ?>">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kelas</label>
+                        <select name="kelas_id" class="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Semua Kelas</option>
+                            <?php foreach($kelas_list as $kelas): ?>
+                                <option value="<?= $kelas['id'] ?>" <?= $kelas_id == $kelas['id'] ? 'selected' : '' ?>>
+                                    <?= 'Kelas ' . htmlspecialchars($kelas['nama_kelas']) . '-' . htmlspecialchars($kelas['sub_kelas']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Awal</label>
+                        <input type="date" name="tanggal_awal" value="<?= htmlspecialchars($tanggal_awal) ?>" class="w-full rounded-lg border-gray-300">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Akhir</label>
+                        <input type="date" name="tanggal_akhir" value="<?= htmlspecialchars($tanggal_akhir) ?>" class="w-full rounded-lg border-gray-300">
+                    </div>
+                    <div class="md:col-span-3">
+                        <button type="submit" class="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Tampilkan</button>
+                    </div>
+                </form>
+
+                <?php if(empty($data)): ?>
+                    <div class="text-center py-8">
+                        <i class="fas fa-info-circle text-gray-400 text-4xl mb-3"></i>
+                        <p class="text-gray-500">Tidak ada data untuk filter yang dipilih</p>
+                    </div>
+                <?php else: ?>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">No</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kelas</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">NIS</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">JK</th>
+                                    <?php if($tab === 'absensi'): ?>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                                    <?php else: ?>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Absen</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tugas</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">UTS</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">UAS</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                                    <?php endif; ?>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <?php $no = 1; foreach($data as $row): ?>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-2 text-sm"><?= $no++ ?></td>
+                                        <td class="px-4 py-2 text-sm">Kelas <?= htmlspecialchars($row['nama_kelas']) ?>-<?= htmlspecialchars($row['sub_kelas']) ?></td>
+                                        <td class="px-4 py-2 text-sm"><?= htmlspecialchars($row['nis']) ?></td>
+                                        <td class="px-4 py-2 text-sm"><?= htmlspecialchars($row['nama_siswa']) ?></td>
+                                        <td class="px-4 py-2 text-sm"><?= htmlspecialchars($row['jenis_kelamin']) ?></td>
+                                        <?php if($tab === 'absensi'): ?>
+                                            <td class="px-4 py-2 text-sm"><?= date('d/m/Y', strtotime($row['tanggal'])) ?></td>
+                                            <td class="px-4 py-2 text-sm"><?= ucfirst($row['status']) ?></td>
+                                            <td class="px-4 py-2 text-sm"><?= $row['keterangan'] ? htmlspecialchars($row['keterangan']) : '-' ?></td>
+                                        <?php else: ?>
+                                            <td class="px-4 py-2 text-sm"><?= $row['absen'] ?></td>
+                                            <td class="px-4 py-2 text-sm"><?= $row['tugas'] ?></td>
+                                            <td class="px-4 py-2 text-sm"><?= $row['uts'] ?></td>
+                                            <td class="px-4 py-2 text-sm"><?= $row['uas'] ?></td>
+                                            <td class="px-4 py-2 text-sm"><?= $row['total'] ?></td>
+                                            <td class="px-4 py-2 text-sm"><?= $row['grade'] ?></td>
+                                        <?php endif; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php require_once 'partials/footer.php'; ?>
