@@ -73,16 +73,6 @@ The system uses MySQL database with several main tables:
 ### Class Diagram
 <img width="761" height="576" alt="image" src="https://github.com/user-attachments/assets/c67e46c9-bc7f-4c8b-914d-6ecdcb45c008" />
 
-## Installation
-1. Clone the repository
-```bash
-git clone https://github.com/yunanda0050/student-academic-monitoring-system.git
-```
-2. Import the MySQL database.
-3. Configure database connection settings.
-4. Run Apache and MySQL using XAMPP.
-5. Open the application in your browser.
-
 ## Author
 **Yunanda Windi Astuti**
 
